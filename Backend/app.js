@@ -35,8 +35,11 @@ mqttClient.on('error', (err) => log("❌ MQTT Error:", err));
 mqttClient.on('reconnect', () => log("🔄 MQTT Reconnecting"));
 
 /* ---------------- MIDDLEWARE ---------------- */
-app.use('/webhook', express.raw({ type: '*/*' }));
-app.use(cors());
+app.use(cors({
+    origin: "https://freshpod-nepal-frontend.onrender.com",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
 app.use(express.json());
 
 // Request logging
