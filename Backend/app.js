@@ -89,7 +89,7 @@ app.post('/create-khalti-order/:id', async (req, res) => {
         }
 
         const khaltiPayload = {
-            return_url: "http://localhost:5173/success",
+            return_url: "https://freshpod-nepal-frontend.onrender.com/success",
             website_url: "https://freshpod.in",
             amount: machine.amount * 100,
             purchase_order_id: `Order_${Date.now()}`,
