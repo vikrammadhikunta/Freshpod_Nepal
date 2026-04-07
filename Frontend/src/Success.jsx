@@ -2,51 +2,100 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const BASE_URL = "http://localhost:3000";
-
 function Success() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  
+
   const [isVerifying, setIsVerifying] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [machineId, setMachineId] = useState(null);
 
+  // 🔍 GLOBAL DEBUG
   useEffect(() => {
+    console.log("=================================");
+    console.log("🚀 SUCCESS PAGE LOADED");
+    console.log("🌐 Full URL:", window.location.href);
+    console.log("🌐 Path:", window.location.pathname);
+    console.log("🌐 Query:", window.location.search);
+    console.log("🌍 ENV VITE_BASE_URL:", import.meta.env.VITE_BASE_URL);
+    console.log("=================================");
+
     const pidx = params.get("pidx");
+
+    console.log("🟡 Extracted pidx:", pidx);
 
     if (pidx) {
       verifyPayment(pidx);
     } else {
+      console.error("❌ No pidx found in URL");
       setIsVerifying(false);
       setErrorMessage("No payment identification found.");
     }
   }, [params]);
 
   const verifyPayment = async (pidx) => {
+    const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+    console.log("=================================");
+    console.log("🚀 VERIFY PAYMENT STARTED");
+    console.log("📦 pidx:", pidx);
+    console.log("🌍 BASE_URL:", BASE_URL);
+    console.log("➡️ FULL API URL:", `${BASE_URL}/verify-khalti-payment`);
+    console.log("=================================");
+
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/verify-khalti-payment`, { pidx });
+      if (!BASE_URL) {
+        console.error("❌ BASE_URL is UNDEFINED");
+        throw new Error("BASE_URL missing");
+      }
+
+      const response = await axios.post(
+        `${BASE_URL}/verify-khalti-payment`,
+        { pidx }
+      );
+
+      console.log("✅ API RESPONSE:", response);
+      console.log("✅ RESPONSE DATA:", response.data);
+
       if (response.data.machineId) {
-      setMachineId(response.data.machineId);
-    }
+        console.log("🏷️ Machine ID received:", response.data.machineId);
+        setMachineId(response.data.machineId);
+      }
+
       if (response.data.success) {
+        console.log("🎉 PAYMENT SUCCESS");
         setIsSuccess(true);
-
-
       } else {
+        console.warn("⚠️ PAYMENT NOT COMPLETED");
+        console.warn("⚠️ STATUS:", response.data.status);
+
         setIsSuccess(false);
-        setErrorMessage("Verification failed. Transaction not completed.");
+        setErrorMessage(
+          `Verification failed: ${response.data.status || "Unknown"}`
+        );
       }
     } catch (error) {
+      console.error("🔥 AXIOS ERROR FULL:", error);
+      console.error("🔥 ERROR MESSAGE:", error.message);
+      console.error("🔥 ERROR RESPONSE:", error.response?.data);
+      console.error("🔥 ERROR STATUS:", error.response?.status);
+
       setIsSuccess(false);
-      setErrorMessage(error.response?.data?.message || "Server error.");
+      setErrorMessage(
+        error.response?.data?.message ||
+          error.message ||
+          "Server error."
+      );
     } finally {
+      console.log("🏁 VERIFY PROCESS FINISHED");
       setIsVerifying(false);
     }
   };
 
   const handleTryAgain = () => {
+    console.log("🔁 Try Again clicked. Machine:", machineId);
+
     if (machineId) {
       navigate(`/?id=${machineId}`);
     } else {
@@ -55,12 +104,16 @@ function Success() {
   };
 
   const handleGoHome = () => {
+    console.log("🏠 Go Home clicked. Machine:", machineId);
+
     if (machineId) {
       navigate(`/?id=${machineId}`);
     } else {
       navigate("/");
     }
   };
+
+  // (UI stays same — no change needed)
 
   // 1. Loading UI
   if (isVerifying) {
