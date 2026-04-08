@@ -130,7 +130,7 @@ function App() {
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-gray-500 text-xs uppercase tracking-wider">Amount to Pay</p>
-                  <p className="text-3xl font-bold text-purple-600">Rs. {machine.amount}</p>
+                  <p className="text-3xl font-bold text-purple-600">NPR {machine.amount}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-gray-500 text-xs uppercase tracking-wider">Service Time</p>
