@@ -13,22 +13,13 @@ function Success() {
 
   // 🔍 GLOBAL DEBUG
   useEffect(() => {
-    console.log("=================================");
-    console.log("🚀 SUCCESS PAGE LOADED");
-    console.log("🌐 Full URL:", window.location.href);
-    console.log("🌐 Path:", window.location.pathname);
-    console.log("🌐 Query:", window.location.search);
-    console.log("🌍 ENV VITE_BASE_URL:", import.meta.env.VITE_BASE_URL);
-    console.log("=================================");
 
     const pidx = params.get("pidx");
 
-    console.log("🟡 Extracted pidx:", pidx);
 
     if (pidx) {
       verifyPayment(pidx);
     } else {
-      console.error("❌ No pidx found in URL");
       setIsVerifying(false);
       setErrorMessage("No payment identification found.");
     }
@@ -37,16 +28,9 @@ function Success() {
   const verifyPayment = async (pidx) => {
     const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-    console.log("=================================");
-    console.log("🚀 VERIFY PAYMENT STARTED");
-    console.log("📦 pidx:", pidx);
-    console.log("🌍 BASE_URL:", BASE_URL);
-    console.log("➡️ FULL API URL:", `${BASE_URL}/verify-khalti-payment`);
-    console.log("=================================");
 
     try {
       if (!BASE_URL) {
-        console.error("❌ BASE_URL is UNDEFINED");
         throw new Error("BASE_URL missing");
       }
 
@@ -55,20 +39,13 @@ function Success() {
         { pidx }
       );
 
-      console.log("✅ API RESPONSE:", response);
-      console.log("✅ RESPONSE DATA:", response.data);
-
       if (response.data.machineId) {
-        console.log("🏷️ Machine ID received:", response.data.machineId);
         setMachineId(response.data.machineId);
       }
 
       if (response.data.success) {
-        console.log("🎉 PAYMENT SUCCESS");
         setIsSuccess(true);
       } else {
-        console.warn("⚠️ PAYMENT NOT COMPLETED");
-        console.warn("⚠️ STATUS:", response.data.status);
 
         setIsSuccess(false);
         setErrorMessage(
@@ -76,10 +53,6 @@ function Success() {
         );
       }
     } catch (error) {
-      console.error("🔥 AXIOS ERROR FULL:", error);
-      console.error("🔥 ERROR MESSAGE:", error.message);
-      console.error("🔥 ERROR RESPONSE:", error.response?.data);
-      console.error("🔥 ERROR STATUS:", error.response?.status);
 
       setIsSuccess(false);
       setErrorMessage(
@@ -88,13 +61,11 @@ function Success() {
           "Server error."
       );
     } finally {
-      console.log("🏁 VERIFY PROCESS FINISHED");
       setIsVerifying(false);
     }
   };
 
   const handleTryAgain = () => {
-    console.log("🔁 Try Again clicked. Machine:", machineId);
 
     if (machineId) {
       navigate(`/?id=${machineId}`);
@@ -104,7 +75,6 @@ function Success() {
   };
 
   const handleGoHome = () => {
-    console.log("🏠 Go Home clicked. Machine:", machineId);
 
     if (machineId) {
       navigate(`/?id=${machineId}`);
