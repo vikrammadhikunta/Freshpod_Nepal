@@ -28,7 +28,7 @@ connectDB()
 
 
 /* ---------------- MQTT ---------------- */
-const mqttClient = mqtt.connect('mqtt://broker.emqx.io');
+const mqttClient = mqtt.connect('mqtt://broker.hivemq.com');
 
 mqttClient.on('connect', () => log("✅ MQTT Connected"));
 mqttClient.on('error', (err) => log("❌ MQTT Error:", err));
