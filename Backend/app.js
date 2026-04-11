@@ -20,12 +20,12 @@ const log = (...args) => {
 };
 
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 /* ---------------- STARTUP ---------------- */
 log("🚀 Starting Backend...");
 connectDB()
     .then(() => log("✅ MongoDB Connected"))
     .catch(err => log("❌ DB Error:", err));
-
 
 /* ---------------- MQTT ---------------- */
 const mqttClient = mqtt.connect('mqtt://broker.hivemq.com');
@@ -40,16 +40,18 @@ app.use(cors({
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
+
 app.use(express.json());
 
-// Request logging
+// Request logging middleware
 app.use((req, res, next) => {
     req.requestId = crypto.randomUUID();
+
     log(`📥 [${req.requestId}] ${req.method} ${req.url}`);
-    log("Body:", req.body);
+    log("📦 Body:", req.body);
 
     res.on('finish', () => {
-        log(`📤 [${req.requestId}] ${res.statusCode}`);
+        log(`📤 [${req.requestId}] Status: ${res.statusCode}`);
     });
 
     next();
@@ -69,7 +71,7 @@ app.get('/machine/:id', async (req, res) => {
             return res.status(404).json({ error: "Machine not found" });
         }
 
-        log("✅ Machine:", machine);
+        log("✅ Machine found:", machine._id);
         res.json(machine);
 
     } catch (error) {
@@ -82,21 +84,35 @@ app.get('/machine/:id', async (req, res) => {
 app.post('/create-khalti-order/:id', async (req, res) => {
     try {
         const machineId = req.params.id;
+        log(`🟡 [DEBUG] Initiating order for Machine: ${machineId}`);
 
-        log("🟡 Creating order for:", machineId);
+        // ✅ ENV VALIDATION
+        if (!process.env.BASE_URL || !process.env.SECRET_KEY) {
+            log("❌ [ENV ERROR] Missing BASE_URL or SECRET_KEY");
+            return res.status(500).json({
+                error: "Server misconfigured",
+                details: "Missing Khalti env variables"
+            });
+        }
 
         const machine = await Machine.findById(machineId);
 
         if (!machine) {
+            log("❌ Machine not found");
             return res.status(404).json({ error: "Machine not found" });
+        }
+
+        if (!machine.amount || isNaN(machine.amount)) {
+            log("❌ Invalid amount:", machine.amount);
+            return res.status(400).json({ error: "Invalid machine amount" });
         }
 
         const khaltiPayload = {
             return_url: "https://freshpod-nepal-frontend.onrender.com/success",
             website_url: "https://freshpod.in",
-            amount: machine.amount * 100,
+            amount: Math.round(machine.amount * 100), // MUST be integer
             purchase_order_id: `Order_${Date.now()}`,
-            purchase_order_name: `MachineID:${machine._id}`, // ✅ FIXED
+            purchase_order_name: `MachineID:${machine._id}`,
             customer_info: {
                 name: "User",
                 email: "test@test.com",
@@ -104,46 +120,78 @@ app.post('/create-khalti-order/:id', async (req, res) => {
             }
         };
 
-        log("📦 Khalti Payload:", khaltiPayload);
+        log("📦 [PAYLOAD]");
+        log(JSON.stringify(khaltiPayload, null, 2));
+
+        log("🌐 BASE_URL:", process.env.BASE_URL);
+        log("🔑 SECRET_KEY present:", !!process.env.SECRET_KEY);
 
         const response = await axios.post(
             `${process.env.BASE_URL}epayment/initiate/`,
             khaltiPayload,
             {
                 headers: {
-                    Authorization: `Key ${process.env.SECRET_KEY}`,
+                    Authorization: `Key ${process.env.SECRET_KEY.trim()}`,
                     'Content-Type': 'application/json'
-                }
+                },
+                timeout: 10000
             }
         );
 
-        log("💰 Khalti Response:", response.data);
+        log("✅ [KHALTI RESPONSE]");
+        log(JSON.stringify(response.data, null, 2));
 
         const tx = await Transaction.create({
             razorpay_payment_id: response.data.pidx,
             amount: machine.amount,
             status: "Initiated",
-            notes: {
-                machine_id: machine._id // ✅ FIXED
-            }
+            notes: { machine_id: machine._id }
         });
 
-        log("📝 Transaction saved:", tx);
+        log("📝 Transaction saved:", tx._id);
 
         res.json(response.data);
 
     } catch (error) {
-        log("❌ Create Order Error:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to initiate payment" });
+
+        log("🚨 [CREATE ORDER ERROR]");
+
+        if (error.response) {
+            log("🔥 Khalti Error Data:", JSON.stringify(error.response.data, null, 2));
+            log("🔥 Status Code:", error.response.status);
+
+            return res.status(error.response.status).json({
+                error: "Khalti rejected the request",
+                khalti_error: error.response.data
+            });
+        }
+
+        if (error.request) {
+            log("🌐 No response received from Khalti");
+
+            return res.status(500).json({
+                error: "No response from Khalti",
+                message: error.message
+            });
+        }
+
+        log("❌ Unknown Error:", error.message);
+
+        res.status(500).json({
+            error: "Failed to initiate payment",
+            message: error.message
+        });
     }
 });
 
 /* ---------------- VERIFY PAYMENT ---------------- */
 app.post('/verify-khalti-payment', async (req, res) => {
-    let machineId = null; // ✅ FIX
+    let machineId = null;
 
     try {
         const { pidx } = req.body;
+
+        log("🟡 Verifying PIDX:", pidx);
 
         if (!pidx) {
             return res.status(400).json({ error: "pidx required" });
@@ -160,6 +208,8 @@ app.post('/verify-khalti-payment', async (req, res) => {
             }
         );
 
+        log("🔍 Khalti Lookup:", response.data);
+
         const paymentInfo = response.data;
 
         const existingTx = await Transaction.findOne({
@@ -172,32 +222,30 @@ app.post('/verify-khalti-payment', async (req, res) => {
 
         machineId = existingTx.notes?.machine_id;
 
-        // fallback recovery
+        // fallback
         if (!machineId) {
             const name = paymentInfo?.purchase_order_name;
-
-            if (name && name.includes("MachineID:")) {
+            if (name?.includes("MachineID:")) {
                 machineId = name.split("MachineID:")[1];
             }
         }
 
-        // ❗ RETURN EVEN IF FAILED
         if (paymentInfo.status !== "Completed") {
             return res.json({
                 success: false,
                 status: paymentInfo.status,
-                machineId: machineId
+                machineId
             });
         }
 
         if (existingTx.status === "Completed") {
             return res.json({
                 success: true,
-                machineId: machineId
+                machineId
             });
         }
 
-        // MQTT
+        // MQTT trigger
         const topic = `freshpod_vending_2025/${machineId}`;
 
         mqttClient.publish(topic, JSON.stringify({
@@ -210,20 +258,25 @@ app.post('/verify-khalti-payment', async (req, res) => {
 
         res.json({
             success: true,
-            machineId: machineId
+            machineId
         });
 
     } catch (error) {
-        log("❌ Verify Error:", error.response?.data || error.message);
+        log("🔥 VERIFY ERROR:", {
+            data: error.response?.data,
+            status: error.response?.status,
+            message: error.message
+        });
 
-        res.status(200).json({  // ✅ NOT 500
+        res.status(200).json({
             success: false,
             status: "Verification failed",
-            machineId: machineId // ✅ SAFE NOW
+            machineId
         });
     }
 });
 
+/* ---------------- GET TRANSACTIONS ---------------- */
 app.get('/transactions', async (req, res) => {
     try {
         const tx = await Transaction.find().sort({ created_at: -1 });
@@ -234,11 +287,13 @@ app.get('/transactions', async (req, res) => {
     }
 });
 
+/* ---------------- GLOBAL ERROR HANDLER ---------------- */
 app.use((err, req, res, next) => {
     log("🔥 Unhandled Error:", err);
     res.status(500).json({ error: "Something went wrong" });
 });
 
+/* ---------------- SERVER ---------------- */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
