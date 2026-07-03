@@ -26,15 +26,6 @@ function Success() {
   }, [params]);
 
   const verifyPayment = async (pidx) => {
-    const BASE_URL = import.meta.env.VITE_BASE_URL;
-
-
-    try {
-      if (!BASE_URL) {
-        throw new Error("BASE_URL missing");
-      }
-
-    const verifyPayment = async (pidx) => {
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
   try {
@@ -68,12 +59,9 @@ function Success() {
         `Verification failed: ${data.status || "Unknown"}`
       );
     }
-
   } catch (error) {
     setIsSuccess(false);
-    setErrorMessage(
-      error.message || "Server error."
-    );
+    setErrorMessage(error.message || "Server error.");
   } finally {
     setIsVerifying(false);
   }
