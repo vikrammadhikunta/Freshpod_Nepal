@@ -34,10 +34,19 @@ function Success() {
         throw new Error("BASE_URL missing");
       }
 
-      const response = await axios.post(
-        `${BASE_URL}/verify-khalti-payment`,
-        { pidx }
-      );
+      const response = await fetch(`${BASE_URL}/verify-khalti-payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ pidx }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
 
       if (response.data.machineId) {
         setMachineId(response.data.machineId);
