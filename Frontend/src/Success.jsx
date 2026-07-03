@@ -34,44 +34,50 @@ function Success() {
         throw new Error("BASE_URL missing");
       }
 
-      const response = await fetch(`${BASE_URL}/verify-khalti-payment`, {
-    method: "POST",
-    headers: {
+    const verifyPayment = async (pidx) => {
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  try {
+    if (!BASE_URL) {
+      throw new Error("BASE_URL missing");
+    }
+
+    const response = await fetch(`${BASE_URL}/verify-khalti-payment`, {
+      method: "POST",
+      headers: {
         "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ pidx }),
-});
+      },
+      body: JSON.stringify({ pidx }),
+    });
 
-if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-}
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
-const data = await response.json();
+    const data = await response.json();
 
-if (data.machineId) {
-    setMachineId(data.machineId);
-}
+    if (data.machineId) {
+      setMachineId(data.machineId);
+    }
 
-if (data.success) {
-    setIsSuccess(true);
-} else {
-    setIsSuccess(false);
-    setErrorMessage(
-        `Verification failed: ${data.status || "Unknown"}`
-    );
-}
-      catch (error) {
-
+    if (data.success) {
+      setIsSuccess(true);
+    } else {
       setIsSuccess(false);
       setErrorMessage(
-        error.response?.data?.message ||
-          error.message ||
-          "Server error."
+        `Verification failed: ${data.status || "Unknown"}`
       );
-    } finally {
-      setIsVerifying(false);
     }
-  };
+
+  } catch (error) {
+    setIsSuccess(false);
+    setErrorMessage(
+      error.message || "Server error."
+    );
+  } finally {
+    setIsVerifying(false);
+  }
+};
 
   const handleTryAgain = () => {
 
