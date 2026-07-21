@@ -35,10 +35,12 @@ mqttClient.on('error', (err) => log("❌ MQTT Error:", err));
 mqttClient.on('reconnect', () => log("🔄 MQTT Reconnecting"));
 
 /* ---------------- MIDDLEWARE ---------------- */
+// ✅ SIMPLE CORS - Only FRONTEND_URL
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
+    origin: process.env.FRONTEND_URL, // Only this URL is allowed
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use(express.json());
@@ -46,9 +48,9 @@ app.use(express.json());
 // Request logging middleware
 app.use((req, res, next) => {
     req.requestId = crypto.randomUUID();
-
     log(`📥 [${req.requestId}] ${req.method} ${req.url}`);
     log("📦 Body:", req.body);
+    log("🔗 Origin:", req.headers.origin);
 
     res.on('finish', () => {
         log(`📤 [${req.requestId}] Status: ${res.statusCode}`);
@@ -61,7 +63,6 @@ app.use((req, res, next) => {
 app.get('/machine/:id', async (req, res) => {
     try {
         const machineId = req.params.id;
-
         log("🔍 Fetch machine:", machineId);
 
         const machine = await Machine.findById(machineId);
@@ -107,8 +108,11 @@ app.post('/create-khalti-order/:id', async (req, res) => {
             return res.status(400).json({ error: "Invalid machine amount" });
         }
 
+        // ✅ SUCCESS URL - Uses FRONTEND_URL
+        const successUrl = `${process.env.FRONTEND_URL}/success`;
+
         const khaltiPayload = {
-            return_url: "https://freshpod-nepal-frontend.onrender.com/success",
+            return_url: successUrl,
             website_url: "https://freshpod.in",
             amount: Math.round(machine.amount * 100), // MUST be integer
             purchase_order_id: `Order_${Date.now()}`,
@@ -125,6 +129,7 @@ app.post('/create-khalti-order/:id', async (req, res) => {
 
         log("🌐 BASE_URL:", process.env.BASE_URL);
         log("🔑 SECRET_KEY present:", !!process.env.SECRET_KEY);
+        log("🔗 Success URL:", successUrl);
 
         const response = await axios.post(
             `${process.env.BASE_URL}epayment/initiate/`,
@@ -287,6 +292,16 @@ app.get('/transactions', async (req, res) => {
     }
 });
 
+/* ---------------- HEALTH CHECK ---------------- */
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'production',
+        allowedOrigin: process.env.FRONTEND_URL
+    });
+});
+
 /* ---------------- GLOBAL ERROR HANDLER ---------------- */
 app.use((err, req, res, next) => {
     log("🔥 Unhandled Error:", err);
@@ -298,4 +313,6 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     log(`🚀 Server running on port ${PORT}`);
+    log(`🔗 CORS allowed origin: ${process.env.FRONTEND_URL}`);
+    log(`🔗 Success URL: ${process.env.FRONTEND_URL}/success`);
 });
