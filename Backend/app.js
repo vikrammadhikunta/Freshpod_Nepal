@@ -36,7 +36,7 @@ mqttClient.on('reconnect', () => log("🔄 MQTT Reconnecting"));
 
 /* ---------------- MIDDLEWARE ---------------- */
 app.use(cors({
-    origin: "https://freshpod-nepal-frontend.onrender.com",
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
